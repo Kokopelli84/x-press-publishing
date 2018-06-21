@@ -3,18 +3,17 @@ const seriesRouter = express.Router();
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(process.env.TEST_DATABASE || './database.sqlite');
 
-
-// middleware for checking a valid series
-seriesRouter.use('/:seriesId', (req, res, next) => {
+seriesRouter.param('seriesId', (req, res, next, id) => {
   db.get('SELECT * FROM Series WHERE id = $id',
-    { $id: req.params.seriesId },
+    { $id: id },
     (err, row) => {
     if (err || !row) {
       return res.sendStatus(404);
     }
+    req.seriesId = id
     next();
   });
-});
+})
 
 seriesRouter.get('/', (req, res) => {
   db.all('SELECT * FROM Series', (err, rows) => {
@@ -27,7 +26,7 @@ seriesRouter.get('/', (req, res) => {
 
 seriesRouter.get('/:seriesId', (req, res) => {
   db.get('SELECT * FROM Series WHERE id = $id',
-    { $id: req.params.seriesId },
+    { $id: req.seriesId },
     (err, row) => {
     res.send({ series: row });
   });
@@ -56,7 +55,7 @@ seriesRouter.post('/', (req, res) => {
 
 seriesRouter.put('/:seriesId', (req, res) => {
   const seriesToUpdate = req.body.series;
-  db.run(`UPDATE Series SET name = $name, description = $description WHERE id = ${req.params.seriesId}`,
+  db.run(`UPDATE Series SET name = $name, description = $description WHERE id = ${req.seriesId}`,
   {
     $name: seriesToUpdate.name,
     $description: seriesToUpdate.description
@@ -65,7 +64,7 @@ seriesRouter.put('/:seriesId', (req, res) => {
     if (err) {
       return res.sendStatus(400);
     }
-    db.get(`SELECT * FROM Series WHERE id = ${req.params.seriesId}`,
+    db.get(`SELECT * FROM Series WHERE id = ${req.seriesId}`,
       (err, row) => {
         res.send({ series: row });
     });
@@ -73,16 +72,13 @@ seriesRouter.put('/:seriesId', (req, res) => {
 });
 
 seriesRouter.delete('/:seriesId', (req, res) => {
-  db.get(`SELECT * FROM Issue WHERE series_id = ${req.params.seriesId}`,
+  db.get(`SELECT * FROM Issue WHERE series_id = ${req.seriesId}`,
   (err, row) => {
     if (row) {
       return res.sendStatus(400);
     }
-    db.run(`DELETE FROM Series WHERE id = ${req.params.seriesId}`,
+    db.run(`DELETE FROM Series WHERE id = ${req.seriesId}`,
     (err) => {
-      if (err) {
-        return res.sendStatus(404);
-      }
       res.sendStatus(204);
     });
   })
